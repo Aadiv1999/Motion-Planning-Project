@@ -29,8 +29,8 @@ class Robot:
     # leg angles in degrees wrt robot frame
     # wheel angles in degrees wrt robot frame
     # this will be rotated
-    leg: list() = [45., 90., 180., 60.]
-    wheel: list() = [45., 45., 45., 45.]
+    leg: list() = [45., 45., 45., 45.]
+    wheel: list() = [45., 135., 225., 315.]
     
 
 
@@ -72,7 +72,7 @@ class Visualizer:
                     [-self.robot.width/2, self.robot.height/2],
                     [self.robot.width/2, self.robot.height/2]]
         
-        boundary_new = rot_points(boundary, pi/4) + np.array([self.robot.x_coord, self.robot.y_coord])
+        boundary_new = rot_points(boundary, 0) + np.array([self.robot.x_coord, self.robot.y_coord])
         
         for i in range(len(boundary_new)):
             if i+1 < 4:
