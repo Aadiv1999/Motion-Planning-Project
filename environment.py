@@ -29,14 +29,17 @@ class Robot:
     # leg angles in degrees wrt robot frame
     # wheel angles in degrees wrt robot frame
     # this will be rotated
-    leg: list() = [45., 45., 45., 45.]
-    wheel: list() = [45., 135., 225., 315.]
+    leg = np.array([45., 45., 45., 45.])
+    wheel = np.array([45., 135., 225., 315.])
     
 
 
     def __init__(self, x, y) -> None:
         self.x_coord = x
         self.y_coord = y
+    
+    def get_robot_points(self):
+        pass
 
 
 class World:    
@@ -141,9 +144,12 @@ class Runner:
 
         while running:
 
+            self.robot.leg[:] += 1
+            self.robot.wheel[:] -= 1
+
             running = self.vis.update_display()
 
-            time.sleep(0.1)
+            time.sleep(0.01)
         
 
 def main():
