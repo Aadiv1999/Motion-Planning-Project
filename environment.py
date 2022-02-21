@@ -46,6 +46,12 @@ class World:
     tree_xs = []
     tree_ys = []
     tree_sizes = []
+    cropRow_widths = []
+    crop_xs = []
+    cropWidth_total = 0
+    cropRow_spacing: int
+    prev_crop_width = 0
+    prev_crop_x = 0
 
     def __init__(self, width: int, height: int, numTrees: int, numCropRows: int) -> None:
         self.width = width
@@ -55,10 +61,20 @@ class World:
         for i in range(numTrees):
             x_pos = random.randint(0, width)
             y_pos = random.randint(0, height)
-            tree_radius = random.randint(10, 60)
+            tree_radius = random.randint(20, 70)
             self.tree_xs.append(x_pos)
             self.tree_ys.append(y_pos)
             self.tree_sizes.append(tree_radius)
+        for i in range(numCropRows):
+            row_width = random.randint(5,20)
+            self.cropRow_widths.append(row_width)
+            self.cropWidth_total = self.cropWidth_total + row_width
+        self.cropRow_spacing = int((width - self.cropWidth_total)/(numCropRows + 2))
+        for i in range(numCropRows):
+            x_pos = self.cropRow_spacing + self.prev_crop_width + self.prev_crop_x
+            self.prev_crop_width = self.cropRow_widths[i-1]
+            self.prev_crop_x = x_pos
+            self.crop_xs.append(x_pos)
 
         
 
@@ -68,7 +84,8 @@ class Visualizer:
     RED: Tuple[int, int, int] = (255, 0, 0)
     WHITE: Tuple[int, int, int] = (255, 255, 255)
     BLUE: Tuple[int, int, int] = (0, 0, 255)
-    GREEN: Tuple[int, int, int] = (0, 255, 0)
+    TREE_GREEN: Tuple[int, int, int] = (34, 139, 34)
+    CROP_GREEN: Tuple[int, int, int] = (167, 199, 155)
 
     def __init__(self, robot: Robot, world: World) -> None:
         pygame.init()
@@ -102,11 +119,16 @@ class Visualizer:
             pygame.draw.line(self.screen, self.BLUE, line_wheel[0], line_wheel[1], 2)
 
     def display_world(self):
+        for i in range(self.world.numCropRows):
+            x_pos = self.world.crop_xs[i]
+            crop_width = self.world.cropRow_widths[i]
+            y_pos = 0
+            pygame.draw.rect(self.screen, self.CROP_GREEN, (x_pos, y_pos, crop_width, self.world.height))
         for i in range(self.world.numTrees):
             x_pos = self.world.tree_xs[i]
             y_pos = self.world.tree_ys[i]
             tree_radius = self.world.tree_sizes[i]
-            pygame.draw.circle(self.screen, self.GREEN, (x_pos, y_pos), tree_radius)
+            pygame.draw.circle(self.screen, self.TREE_GREEN, (x_pos, y_pos), tree_radius)
 
 
     def update_display(self) -> bool:
@@ -152,8 +174,8 @@ class Runner:
 def main():
     height = 1000
     width = 1000
-    numTrees = 15
-    numCropRows = 10
+    numTrees = 10
+    numCropRows = 20
 
     robot = Robot(300,400)
     world = World(width, height, numTrees, numCropRows)
