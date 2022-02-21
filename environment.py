@@ -7,7 +7,7 @@ from copy import copy
 import numpy as np
 import pygame
 from math import sin, cos, atan, atan2, pi, sqrt
-import cv2
+#import cv2
 
 def rot_points(mat, radians: float):
     rot = []
