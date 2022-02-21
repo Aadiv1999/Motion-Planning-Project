@@ -54,15 +54,20 @@ class World:
     prev_crop_width = 0
     prev_crop_x = 0
 
+    cropsPerRow: int
+    vert_crop_spacing: float
+    crop_space_ys = []
+
     weed_xs = []
     weed_ys = []
     weed_sizes = []
 
-    def __init__(self, width: int, height: int, numTrees: int, numCropRows: int, numWeeds: int) -> None:
+    def __init__(self, width: int, height: int, numTrees: int, numCropRows: int, cropsPerRow: int, numWeeds: int) -> None:
         self.width = width
         self.height = height
         self.numTrees = numTrees
         self.numCropRows = numCropRows
+        self.cropsPerRow = cropsPerRow
         self.numWeeds = numWeeds
         for i in range(numTrees):
             x_pos = random.randint(0, width)
@@ -88,6 +93,17 @@ class World:
             self.weed_xs.append(x_pos)
             self.weed_ys.append(y_pos)
             self.weed_sizes.append(weed_radius)
+        self.vert_crop_spacing = self.height/((self.cropsPerRow*2)-1)
+        print(self.vert_crop_spacing)
+        for i in range((cropsPerRow*2)+1):
+            print(i)
+            if i == 0:
+                y_pos = 0
+            elif (i%2) == 0:
+                y_pos = (i-1) * self.vert_crop_spacing
+                self.crop_space_ys.append(y_pos)
+            else:
+                y_pos = (i-1) * self.vert_crop_spacing
 
         
 
@@ -138,6 +154,11 @@ class Visualizer:
             crop_width = self.world.cropRow_widths[i]
             y_pos = 0
             pygame.draw.rect(self.screen, self.CROP_GREEN, (x_pos, y_pos, crop_width, self.world.height))
+        for i in range(len(self.world.crop_space_ys)):
+            y_pos = self.world.crop_space_ys[i]
+            width = self.world.vert_crop_spacing
+            x_pos = 0
+            pygame.draw.rect(self.screen, self.WHITE, (x_pos, y_pos, self.world.width, width))
         for i in range(self.world.numWeeds):
             x_pos = self.world.weed_xs[i]
             y_pos = self.world.weed_ys[i]
@@ -195,10 +216,11 @@ def main():
     width = 1000
     numTrees = 10
     numCropRows = 20
+    cropsPerRow = 30
     numWeeds = 50
 
     robot = Robot(300,400)
-    world = World(width, height, numTrees, numCropRows, numWeeds)
+    world = World(width, height, numTrees, numCropRows, cropsPerRow, numWeeds)
     vis = Visualizer(robot, world)
 
     runner = Runner(robot, world, vis)
