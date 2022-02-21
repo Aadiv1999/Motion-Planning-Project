@@ -42,13 +42,23 @@ class Robot:
 
 
 class World:    
-    numTrees = 5
-    numCropRows = 10
     #obstacle = []
+    tree_xs = []
+    tree_ys = []
+    tree_sizes = []
 
-    def __init__(self, width: int, height: int) -> None:
+    def __init__(self, width: int, height: int, numTrees: int, numCropRows: int) -> None:
         self.width = width
         self.height = height
+        self.numTrees = numTrees
+        self.numCropRows = numCropRows
+        for i in range(numTrees):
+            x_pos = random.randint(0, width)
+            y_pos = random.randint(0, height)
+            tree_radius = random.randint(10, 60)
+            self.tree_xs.append(x_pos)
+            self.tree_ys.append(y_pos)
+            self.tree_sizes.append(tree_radius)
 
         
 
@@ -93,9 +103,9 @@ class Visualizer:
 
     def display_world(self):
         for i in range(self.world.numTrees):
-            x_pos = random.randint(0, self.world.width)
-            y_pos = random.randint(0, self.world.height)
-            tree_radius = random.randint(10, 75)
+            x_pos = self.world.tree_xs[i]
+            y_pos = self.world.tree_ys[i]
+            tree_radius = self.world.tree_sizes[i]
             pygame.draw.circle(self.screen, self.GREEN, (x_pos, y_pos), tree_radius)
 
 
@@ -142,9 +152,11 @@ class Runner:
 def main():
     height = 1000
     width = 1000
+    numTrees = 15
+    numCropRows = 10
 
     robot = Robot(300,400)
-    world = World(width, height)
+    world = World(width, height, numTrees, numCropRows)
     vis = Visualizer(robot, world)
 
     runner = Runner(robot, world, vis)
