@@ -25,7 +25,7 @@ class Robot:
     leg_length: int = 30
     wheel_diam: int = 10
     angle = 0
-
+    points = []
     # leg angles in degrees wrt robot frame
     # wheel angles in degrees wrt robot frame
     # this will be rotated
@@ -40,6 +40,7 @@ class Robot:
     
     def get_robot_points(self):
         pass
+
 
 
 class World:    
