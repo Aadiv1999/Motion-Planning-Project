@@ -25,19 +25,22 @@ class Robot:
     leg_length: int = 30
     wheel_diam: int = 10
     angle = 0
-
+    points = []
     # leg angles in degrees wrt robot frame
     # wheel angles in degrees wrt robot frame
-
-    leg: list() = [45., 90., 180., 60.]
-    wheel: list() = [45., 45., 45., 45.]
-
+    # this will be rotated
+    leg = np.array([45., 45., 45., 45.])
+    wheel = np.array([45., 135., 225., 315.])
     
 
 
     def __init__(self, x, y) -> None:
         self.x_coord = x
         self.y_coord = y
+    
+    def get_robot_points(self):
+        pass
+
 
 
 class World:    
@@ -68,17 +71,31 @@ class Visualizer:
     
     def display_robot(self):
         xor = [[1,-1], [-1,-1], [-1,1], [1,1]]
-        pygame.draw.circle(self.screen, self.RED, (self.robot.x_coord, self.robot.y_coord),2)
-        pos_x = self.robot.x_coord - self.robot.width/2
-        pos_y = self.robot.y_coord - self.robot.height/2
+        boundary = [[self.robot.width/2, -self.robot.height/2],
+                    [-self.robot.width/2, -self.robot.height/2],
+                    [-self.robot.width/2, self.robot.height/2],
+                    [self.robot.width/2, self.robot.height/2]]
         
-        pygame.draw.rect(self.screen, self.RED, (pos_x, pos_y, self.robot.width, self.robot.height), 2)
+        boundary_new = rot_points(boundary, 0) + np.array([self.robot.x_coord, self.robot.y_coord])
+        
+        for i in range(len(boundary_new)):
+            if i+1 < 4:
+                pygame.draw.line(self.screen, self.RED, boundary_new[i], boundary_new[i+1])
+            else:
+                pygame.draw.line(self.screen, self.RED, boundary_new[i], boundary_new[0])
+        
+        
+        pygame.draw.circle(self.screen, self.RED, (self.robot.x_coord, self.robot.y_coord),2)
+        
+
+        
+
         
         # leg
         for i in range(4):
             
-            start_x = self.robot.x_coord + xor[i][0]*self.robot.width/2
-            start_y = self.robot.y_coord + xor[i][1]*self.robot.height/2
+            start_x = boundary_new[i][0]
+            start_y = boundary_new[i][1]
             angle_leg = 2*pi - self.robot.leg[i] * pi/180
             
             line_leg = rot_points([[0,0],[self.robot.leg_length,0]], angle_leg) + np.array([[start_x, start_y],[start_x, start_y]])
@@ -128,9 +145,12 @@ class Runner:
 
         while running:
 
+            self.robot.leg[:] += 1
+            self.robot.wheel[:] -= 1
+
             running = self.vis.update_display()
 
-            time.sleep(0.1)
+            time.sleep(0.01)
         
 
 def main():
