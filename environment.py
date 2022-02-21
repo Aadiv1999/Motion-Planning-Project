@@ -6,6 +6,7 @@ from typing import List, Tuple, Union
 from copy import copy
 import numpy as np
 import pygame
+import random
 from math import sin, cos, atan, atan2, pi, sqrt
 #import cv2
 
@@ -41,8 +42,9 @@ class Robot:
 
 
 class World:    
-
-    obstacle = []
+    numTrees = 5
+    numCropRows = 10
+    #obstacle = []
 
     def __init__(self, width: int, height: int) -> None:
         self.width = width
@@ -56,6 +58,7 @@ class Visualizer:
     RED: Tuple[int, int, int] = (255, 0, 0)
     WHITE: Tuple[int, int, int] = (255, 255, 255)
     BLUE: Tuple[int, int, int] = (0, 0, 255)
+    GREEN: Tuple[int, int, int] = (0, 255, 0)
 
     def __init__(self, robot: Robot, world: World) -> None:
         pygame.init()
@@ -89,8 +92,11 @@ class Visualizer:
             pygame.draw.line(self.screen, self.BLUE, line_wheel[0], line_wheel[1], 2)
 
     def display_world(self):
-        """ use this for obstacles """
-        pass
+        for i in range(self.world.numTrees):
+            x_pos = random.randint(0, self.world.width)
+            y_pos = random.randint(0, self.world.height)
+            tree_radius = random.randint(10, 75)
+            pygame.draw.circle(self.screen, self.GREEN, (x_pos, y_pos), tree_radius)
 
 
     def update_display(self) -> bool:
