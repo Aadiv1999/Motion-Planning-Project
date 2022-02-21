@@ -6,8 +6,9 @@ from typing import List, Tuple, Union
 from copy import copy
 import numpy as np
 import pygame
+import random
 from math import sin, cos, atan, atan2, pi, sqrt
-import cv2
+#import cv2
 
 def rot_points(mat, radians: float):
     rot = []
@@ -44,12 +45,68 @@ class Robot:
 
 
 class World:    
+    #obstacle = []
+    tree_xs = []
+    tree_ys = []
+    tree_sizes = []
 
-    obstacle = []
+    cropRow_widths = []
+    crop_xs = []
+    cropWidth_total = 0
+    cropRow_spacing: int
+    prev_crop_width = 0
+    prev_crop_x = 0
 
-    def __init__(self, width: int, height: int) -> None:
+    cropsPerRow: int
+    vert_crop_spacing: float
+    crop_space_ys = []
+
+    weed_xs = []
+    weed_ys = []
+    weed_sizes = []
+
+    def __init__(self, width: int, height: int, numTrees: int, numCropRows: int, cropsPerRow: int, numWeeds: int) -> None:
         self.width = width
         self.height = height
+        self.numTrees = numTrees
+        self.numCropRows = numCropRows
+        self.cropsPerRow = cropsPerRow
+        self.numWeeds = numWeeds
+        for i in range(numTrees):
+            x_pos = random.randint(0, width)
+            y_pos = random.randint(0, height)
+            tree_radius = random.randint(20, 70)
+            self.tree_xs.append(x_pos)
+            self.tree_ys.append(y_pos)
+            self.tree_sizes.append(tree_radius)
+        for i in range(numCropRows):
+            row_width = random.randint(5,20)
+            self.cropRow_widths.append(row_width)
+            self.cropWidth_total = self.cropWidth_total + row_width
+        self.cropRow_spacing = int((width - self.cropWidth_total)/(numCropRows + 2))
+        for i in range(numCropRows):
+            x_pos = self.cropRow_spacing + self.prev_crop_width + self.prev_crop_x
+            self.prev_crop_width = self.cropRow_widths[i-1]
+            self.prev_crop_x = x_pos
+            self.crop_xs.append(x_pos)
+        for i in range(numWeeds):
+            x_pos = random.randint(0, width)
+            y_pos = random.randint(0, height)
+            weed_radius = random.randint(5, 15)
+            self.weed_xs.append(x_pos)
+            self.weed_ys.append(y_pos)
+            self.weed_sizes.append(weed_radius)
+        self.vert_crop_spacing = self.height/((self.cropsPerRow*2)-1)
+        print(self.vert_crop_spacing)
+        for i in range((cropsPerRow*2)+1):
+            print(i)
+            if i == 0:
+                y_pos = 0
+            elif (i%2) == 0:
+                y_pos = (i-1) * self.vert_crop_spacing
+                self.crop_space_ys.append(y_pos)
+            else:
+                y_pos = (i-1) * self.vert_crop_spacing
 
         
 
@@ -59,6 +116,9 @@ class Visualizer:
     RED: Tuple[int, int, int] = (255, 0, 0)
     WHITE: Tuple[int, int, int] = (255, 255, 255)
     BLUE: Tuple[int, int, int] = (0, 0, 255)
+    TREE_GREEN: Tuple[int, int, int] = (34, 139, 34)
+    CROP_GREEN: Tuple[int, int, int] = (167, 199, 155)
+    WEED_GREEN: Tuple[int, int, int] = (20, 66, 6)
 
     def __init__(self, robot: Robot, world: World) -> None:
         pygame.init()
@@ -66,7 +126,7 @@ class Visualizer:
         self.robot = robot
         self.world = world
         self.screen = pygame.display.set_mode((world.width, world.height))
-        pygame.display.set_caption('Tetromino Challenge')
+        pygame.display.set_caption('Farmland')
         self.font = pygame.font.SysFont('freesansbolf.tff', 30)
     
     def display_robot(self):
@@ -106,8 +166,26 @@ class Visualizer:
             pygame.draw.line(self.screen, self.BLUE, line_wheel[0], line_wheel[1], 2)
 
     def display_world(self):
-        """ use this for obstacles """
-        pass
+        for i in range(self.world.numCropRows):
+            x_pos = self.world.crop_xs[i]
+            crop_width = self.world.cropRow_widths[i]
+            y_pos = 0
+            pygame.draw.rect(self.screen, self.CROP_GREEN, (x_pos, y_pos, crop_width, self.world.height))
+        for i in range(len(self.world.crop_space_ys)):
+            y_pos = self.world.crop_space_ys[i]
+            width = self.world.vert_crop_spacing
+            x_pos = 0
+            pygame.draw.rect(self.screen, self.WHITE, (x_pos, y_pos, self.world.width, width))
+        for i in range(self.world.numWeeds):
+            x_pos = self.world.weed_xs[i]
+            y_pos = self.world.weed_ys[i]
+            weed_radius = self.world.weed_sizes[i]
+            pygame.draw.circle(self.screen, self.WEED_GREEN, (x_pos, y_pos), weed_radius)
+        for i in range(self.world.numTrees):
+            x_pos = self.world.tree_xs[i]
+            y_pos = self.world.tree_ys[i]
+            tree_radius = self.world.tree_sizes[i]
+            pygame.draw.circle(self.screen, self.TREE_GREEN, (x_pos, y_pos), tree_radius)
 
 
     def update_display(self) -> bool:
@@ -156,9 +234,13 @@ class Runner:
 def main():
     height = 1000
     width = 1000
+    numTrees = 10
+    numCropRows = 20
+    cropsPerRow = 30
+    numWeeds = 50
 
     robot = Robot(300,400)
-    world = World(width, height)
+    world = World(width, height, numTrees, numCropRows, cropsPerRow, numWeeds)
     vis = Visualizer(robot, world)
 
     runner = Runner(robot, world, vis)
