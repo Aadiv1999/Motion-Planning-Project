@@ -2,6 +2,7 @@ from operator import truediv
 from pickletools import uint8
 from re import X
 import time
+from turtle import heading
 from typing import List, Tuple, Union
 from copy import copy
 import numpy as np
@@ -10,9 +11,10 @@ import random
 from math import sin, cos, atan, atan2, pi, sqrt
 #import cv2
 
-def rot_points(mat, radians: float):
+def rot_points(mat, degrees: float):
     rot = []
-    rot_mat = np.array([[cos(radians), sin(radians)],[-sin(radians), cos(radians)]])
+    degrees = degrees * pi/180
+    rot_mat = np.array([[cos(degrees), sin(degrees)],[-sin(degrees), cos(degrees)]])
 
     for m in mat:
         rot.append(m @ rot_mat)
@@ -21,26 +23,63 @@ def rot_points(mat, radians: float):
 class Robot:
     x_coord: int
     y_coord: int
-    width: int = 70
-    height: int = 70
-    leg_length: int = 30
-    wheel_diam: int = 10
+    width: int = 100
+    height: int = 100
+    leg_length: int = 50
+    wheel_diam: int = 20
     angle = 0
     points = []
     # leg angles in degrees wrt robot frame
     # wheel angles in degrees wrt robot frame
     # this will be rotated
-    leg = np.array([45., 45., 45., 45.])
-    wheel = np.array([45., 135., 225., 315.])
+    leg = np.array([45., 135., 225., 315.])
+    wheel = np.array([0., 45., 135., 225.])
     
 
 
     def __init__(self, x, y) -> None:
         self.x_coord = x
         self.y_coord = y
+        # self.chassis = self.robot_points()
     
     def get_robot_points(self):
-        pass
+        points = []
+        
+        # chassis points
+        # top right index 0
+        points.append([int(self.width/2), int(self.height/2)])
+        # top left index 1
+        points.append([-int(self.width/2), int(self.height/2)])
+        # bottom left index 2
+        points.append([-int(self.width/2), -int(self.height/2)])
+        # bottom right index 3
+        points.append([int(self.width/2), -int(self.height/2)])
+
+        # legs
+        # index 4 to 7
+        for i in range(4):
+            leg_points = rot_points([[0,0], [self.leg_length,0]], self.leg[i])[1] + np.array(points[i])
+            points.append(leg_points)
+
+        # wheels
+        for i in range(4):
+            wheel_points = rot_points([[-self.wheel_diam,0], [self.wheel_diam,0]], self.wheel[i]) + np.array([points[i+4], points[i+4]])
+            points.append(wheel_points[0])
+            points.append(wheel_points[1])
+
+        heading = [[0,0],[0,self.height]]
+        points.append(heading[0])
+        points.append(heading[1])
+        points = rot_points(points, self.angle) + np.array([self.x_coord, self.y_coord])
+        
+        return points
+    
+    def get_heading(self):
+        
+        heading = [[0,0]]
+        heading.append([0, self.height+20])
+
+        return np.array(heading)
 
 
 
@@ -99,7 +138,7 @@ class World:
         self.vert_crop_spacing = self.height/((self.cropsPerRow*2)-1)
         print(self.vert_crop_spacing)
         for i in range((cropsPerRow*2)+1):
-            print(i)
+            # print(i)
             if i == 0:
                 y_pos = 0
             elif (i%2) == 0:
@@ -130,40 +169,28 @@ class Visualizer:
         self.font = pygame.font.SysFont('freesansbolf.tff', 30)
     
     def display_robot(self):
-        xor = [[1,-1], [-1,-1], [-1,1], [1,1]]
-        boundary = [[self.robot.width/2, -self.robot.height/2],
-                    [-self.robot.width/2, -self.robot.height/2],
-                    [-self.robot.width/2, self.robot.height/2],
-                    [self.robot.width/2, self.robot.height/2]]
-        
-        boundary_new = rot_points(boundary, 0) + np.array([self.robot.x_coord, self.robot.y_coord])
-        
-        for i in range(len(boundary_new)):
-            if i+1 < 4:
-                pygame.draw.line(self.screen, self.RED, boundary_new[i], boundary_new[i+1])
-            else:
-                pygame.draw.line(self.screen, self.RED, boundary_new[i], boundary_new[0])
-        
-        
-        pygame.draw.circle(self.screen, self.RED, (self.robot.x_coord, self.robot.y_coord),2)
-        
+        angle = 0
 
+        all_points = self.robot.get_robot_points()
         
-
-        
-        # leg
+        # plot chassis
         for i in range(4):
-            
-            start_x = boundary_new[i][0]
-            start_y = boundary_new[i][1]
-            angle_leg = 2*pi - self.robot.leg[i] * pi/180
-            
-            line_leg = rot_points([[0,0],[self.robot.leg_length,0]], angle_leg) + np.array([[start_x, start_y],[start_x, start_y]])
-            pygame.draw.line(self.screen, self.BLACK, line_leg[0], line_leg[1], 2)
+            if i == 3:
+                pygame.draw.line(self.screen, self.RED, all_points[i], all_points[0], 2)
+            else:
+                pygame.draw.line(self.screen, self.RED, all_points[i], all_points[i+1], 2)
 
-            angle_wheel = 2*pi - self.robot.wheel[i] * pi/180
-            line_wheel = rot_points([[-self.robot.wheel_diam,0],[self.robot.wheel_diam,0]], angle_wheel) + np.array([line_leg[1],line_leg[1]])
-            pygame.draw.line(self.screen, self.BLUE, line_wheel[0], line_wheel[1], 2)
+        # plot legs
+        for i in range(4):
+            pygame.draw.line(self.screen, self.BLUE, all_points[i], all_points[i+4], 2)
+        
+        # plot wheels
+        for i in range(8,15,2):
+            pygame.draw.line(self.screen, self.BLACK, all_points[i], all_points[i+1], 2)
+
+        
+        # heading = rot_points(self.robot.get_heading(), angle) + np.array([self.robot.x_coord, self.robot.y_coord])
+        pygame.draw.line(self.screen, self.BLUE, all_points[-2], all_points[-1], 2)
 
     def display_world(self):
         for i in range(self.world.numCropRows):
@@ -192,7 +219,7 @@ class Visualizer:
 
         self.screen.fill(self.WHITE)
 
-        self.display_world()
+        # self.display_world()
 
         self.display_robot()
 
@@ -220,14 +247,17 @@ class Runner:
 
     def run(self):
         running = True
+        counter = 0
 
         while running:
+            
 
-            self.robot.leg[:] += 1
-            self.robot.wheel[:] -= 1
+            self.robot.angle += 1
+            self.robot.x_coord += 1
 
             running = self.vis.update_display()
 
+            counter += 1
             time.sleep(0.01)
         
 
@@ -239,7 +269,7 @@ def main():
     cropsPerRow = 30
     numWeeds = 50
 
-    robot = Robot(300,400)
+    robot = Robot(500,500)
     world = World(width, height, numTrees, numCropRows, cropsPerRow, numWeeds)
     vis = Visualizer(robot, world)
 
