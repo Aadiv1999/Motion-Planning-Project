@@ -16,9 +16,11 @@ def rot_points(mat, degrees: float):
     degrees = degrees * pi/180
     rot_mat = np.array([[cos(degrees), sin(degrees)],[-sin(degrees), cos(degrees)]])
 
-    for m in mat:
-        rot.append(m @ rot_mat)
-    return rot
+    return mat @ rot_mat
+
+def convert_to_display(mat):
+    mat[:,1] = 1000 - mat[:,1]
+    return mat
 
 class Robot:
     x_coord: int
@@ -33,8 +35,7 @@ class Robot:
     # wheel angles in degrees wrt robot frame
     # this will be rotated
     leg = np.array([45., 135., 225., 315.])
-    wheel = np.array([0., 45., 135., 225.])
-    
+    wheel = np.array([315., 45., 135., 225.])   
 
 
     def __init__(self, x, y) -> None:
@@ -71,16 +72,9 @@ class Robot:
         points.append(heading[0])
         points.append(heading[1])
         points = rot_points(points, self.angle) + np.array([self.x_coord, self.y_coord])
-        
+
+        points = convert_to_display(points)
         return points
-    
-    def get_heading(self):
-        
-        heading = [[0,0]]
-        heading.append([0, self.height+20])
-
-        return np.array(heading)
-
 
 
 class World:    
@@ -176,9 +170,9 @@ class Visualizer:
         # plot chassis
         for i in range(4):
             if i == 3:
-                pygame.draw.line(self.screen, self.RED, all_points[i], all_points[0], 2)
+                pygame.draw.line(self.screen, self.RED, all_points[i], all_points[0], 4)
             else:
-                pygame.draw.line(self.screen, self.RED, all_points[i], all_points[i+1], 2)
+                pygame.draw.line(self.screen, self.RED, all_points[i], all_points[i+1], 4)
 
         # plot legs
         for i in range(4):
@@ -186,10 +180,9 @@ class Visualizer:
         
         # plot wheels
         for i in range(8,15,2):
-            pygame.draw.line(self.screen, self.BLACK, all_points[i], all_points[i+1], 2)
-
+            pygame.draw.line(self.screen, self.BLACK, all_points[i], all_points[i+1], 4)
         
-        # heading = rot_points(self.robot.get_heading(), angle) + np.array([self.robot.x_coord, self.robot.y_coord])
+        # heading
         pygame.draw.line(self.screen, self.BLUE, all_points[-2], all_points[-1], 2)
 
     def display_world(self):
@@ -253,7 +246,7 @@ class Runner:
             
 
             self.robot.angle += 1
-            self.robot.x_coord += 1
+            self.robot.y_coord += 1
 
             running = self.vis.update_display()
 
