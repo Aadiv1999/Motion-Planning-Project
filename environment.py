@@ -182,7 +182,8 @@ class Planner:
         obs[rx, ry] = 255
         x = HEIGHT//300
         # print("RX: ",rx)
-        self.trajectory = np.flip(np.vstack((ry*x, rx*x)).T, axis=0)
+        #self.trajectory = np.flip(np.vstack((ry*x, rx*x)).T, axis=0)
+        self.trajectory = np.flip(np.vstack((rx*x, ry*x)).T, axis=0)
 
         # cv2.imshow('map', obs_map)
         # cv2.waitKey()
@@ -316,9 +317,20 @@ class Runner:
                         
             running = self.vis.update_display(counter)
             
+            #if counter == 0:
+            #    #self.planner.get_path((290, 290), (100, 90))
+            #    self.planner.get_path((290, 290), (self.world.weed_xs[0]/3, self.world.weed_ys[0]/3))
+            #    print(len(self.planner.trajectory))
+            #weed_xs2 = []
+            #weed_ys2 = []
+            #weed_xs2 = self.world.weed_xs
+            #weed_ys2 = self.world.weed_ys
+            #for i in self.world.weed_xs:
             if counter == 0:
-                self.planner.get_path((290, 290), (100, 90))
-                print(len(self.planner.trajectory))
+                #print(i)
+                    #self.planner.get_path((290, 290), (100, 90))
+                self.planner.get_path((290, 290), (self.world.weed_xs[0]/3, self.world.weed_ys[0]/3))
+                #print(len(self.planner.trajectory))
             
             if counter < len(self.planner.trajectory)-1:
                 x = self.planner.trajectory[counter][0]
@@ -326,23 +338,32 @@ class Runner:
                 y = self.planner.trajectory[counter][1]
                 y_next = self.planner.trajectory[counter+1][1]
 
+                    #x = self.planner.trajectory[counter][1]
+                    #x_next = self.planner.trajectory[counter+1][1]
+                    #y = self.planner.trajectory[counter][0]
+                    #y_next = self.planner.trajectory[counter+1][0]
+
                 angle = atan2(y_next-y, x_next-x)
                 self.robot.turn_to(angle*180/pi - 90)
                 self.robot.set_position(x,HEIGHT-y)
                 self.robot.visited.append([x,y])
-                # print(len(self.robot.visited))
+                    # print(len(self.robot.visited))
 
             counter += 1
             time.sleep(0.01)
+            #weed_xs2.pop(0)
+            #weed_ys2.pop(0)
         
 
 def main():
     height = HEIGHT
     width = WIDTH
     numTrees = 0
-    numCropRows = 7
+    #numCropRows = 7
+    #cropsPerRow = 10
+    numCropRows = 5
     cropsPerRow = 10
-    numWeeds = 10
+    numWeeds = 5
 
     robot = Robot(500,500)
     world = World(width, height, numTrees, numCropRows, cropsPerRow, numWeeds)
