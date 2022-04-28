@@ -1,3 +1,4 @@
+from itertools import count
 from operator import truediv
 from pickletools import uint8
 from re import X
@@ -5,11 +6,15 @@ import time
 from turtle import heading
 from typing import List, Tuple, Union
 from copy import copy
+import cv2
 import numpy as np
 import pygame
 import random
 from math import sin, cos, atan, atan2, pi, sqrt
-#import cv2
+from astar import AStarPlanner
+
+HEIGHT = 900
+WIDTH = 900
 
 def rot_points(mat, degrees: float):
     rot = []
@@ -19,16 +24,16 @@ def rot_points(mat, degrees: float):
     return mat @ rot_mat
 
 def convert_to_display(mat):
-    mat[:,1] = 1000 - mat[:,1]
+    mat[:,1] = HEIGHT - mat[:,1]
     return mat
 
 class Robot:
     x_coord: int
     y_coord: int
-    width: int = 100
-    height: int = 100
-    leg_length: int = 50
-    wheel_diam: int = 20
+    width: int = 30
+    height: int = 30
+    leg_length: int = 10
+    wheel_diam: int = 7
     angle = 0
     points = []
     # leg angles in degrees wrt robot frame
@@ -36,6 +41,8 @@ class Robot:
     # this will be rotated
     leg = np.array([45., 135., 225., 315.])
     wheel = np.array([315., 45., 135., 225.])   
+
+    visited = []
 
 
     def __init__(self, x, y) -> None:
@@ -75,6 +82,13 @@ class Robot:
 
         points = convert_to_display(points)
         return points
+    
+    def turn_to(self, theta: float) -> None:
+        self.wheel[:] = theta
+    
+    def set_position(self, x: int, y:int) -> None:
+        self.x_coord = x
+        self.y_coord = y
 
 
 class World:    
@@ -97,6 +111,8 @@ class World:
     weed_xs = []
     weed_ys = []
     weed_sizes = []
+
+    world_array = []
 
     def __init__(self, width: int, height: int, numTrees: int, numCropRows: int, cropsPerRow: int, numWeeds: int) -> None:
         self.width = width
@@ -141,7 +157,37 @@ class World:
             else:
                 y_pos = (i-1) * self.vert_crop_spacing
 
+
+class Planner:
+
+    trajectory = []
+    def __init__(self, robot: Robot, world: World) -> None:
+        self.robot = robot
+        self.world = world
+    
+    def get_path(self, start: Tuple[int, int], goal: Tuple[int, int]):
+        obs = self.world.world_array
+        # obs[1:10, 1:10] = 255
         
+        obs_idx = np.argwhere(obs == 255)
+        ox = np.array(obs_idx[:,0])
+        oy = np.array(obs_idx[:,1])
+        obs_map = obs
+
+        
+
+        
+        astar = AStarPlanner(ox, oy, obs_map)
+        rx, ry = astar.planning(start[0], start[1], goal[0], goal[1])
+        obs[rx, ry] = 255
+        x = HEIGHT//300
+        # print("RX: ",rx)
+        self.trajectory = np.flip(np.vstack((ry*x, rx*x)).T, axis=0)
+
+        # cv2.imshow('map', obs_map)
+        # cv2.waitKey()
+        # cv2.destroyAllWindows()
+    
 
 
 class Visualizer:
@@ -153,11 +199,12 @@ class Visualizer:
     CROP_GREEN: Tuple[int, int, int] = (167, 199, 155)
     WEED_GREEN: Tuple[int, int, int] = (20, 66, 6)
 
-    def __init__(self, robot: Robot, world: World) -> None:
+    def __init__(self, robot: Robot, world: World, planner: Planner) -> None:
         pygame.init()
         pygame.font.init()
         self.robot = robot
         self.world = world
+        self.planner = planner
         self.screen = pygame.display.set_mode((world.width, world.height))
         pygame.display.set_caption('Farmland')
         self.font = pygame.font.SysFont('freesansbolf.tff', 30)
@@ -206,15 +253,37 @@ class Visualizer:
             y_pos = self.world.tree_ys[i]
             tree_radius = self.world.tree_sizes[i]
             pygame.draw.circle(self.screen, self.TREE_GREEN, (x_pos, y_pos), tree_radius)
+        
+    def display_trajectory(self):
+        
+        for i in range(len(self.planner.trajectory)-1):
+            pygame.draw.line(self.screen, self.RED, self.planner.trajectory[i], self.planner.trajectory[i+1], 1)
 
-
-    def update_display(self) -> bool:
+    def update_display(self, counter: int) -> bool:
 
         self.screen.fill(self.WHITE)
 
-        # self.display_world()
+        self.display_world()
 
-        self.display_robot()
+        self.display_trajectory()
+
+        if counter < 1:
+            self.display_world()
+            pygame.image.save(self.screen, 'output.png')
+            img = cv2.threshold(255-cv2.imread('output.png',cv2.IMREAD_GRAYSCALE), 50, 255, cv2.THRESH_BINARY)[1]
+            img_resize = cv2.resize(img, (300, 300), interpolation=cv2.INTER_AREA)
+            kernel = np.ones((10,10), np.uint8)
+            self.world.world_array = cv2.dilate(img_resize, kernel, iterations=1)
+            cv2.imwrite('output_dilated.png', self.world.world_array)
+            # cv2.imshow('world', self.world.world_array)
+            # cv2.waitKey()
+            # cv2.destroyAllWindows()
+
+        if counter > 5:
+            self.display_robot()
+
+        for i in range(len(self.robot.visited)-1):
+            pygame.draw.line(self.screen, self.BLUE, self.robot.visited[i], self.robot.visited[i+1], 1)
 
         for event in pygame.event.get():
             # Keypress
@@ -231,10 +300,11 @@ class Visualizer:
 
 
 class Runner:
-    def __init__(self, robot: Robot, world: World, vis: Visualizer) -> None:
+    def __init__(self, robot: Robot, world: World, vis: Visualizer, planner: Planner) -> None:
         self.robot = robot
         self.world = world
         self.vis = vis
+        self.planner = planner
         
         
 
@@ -243,30 +313,43 @@ class Runner:
         counter = 0
 
         while running:
+                        
+            running = self.vis.update_display(counter)
             
+            if counter == 0:
+                self.planner.get_path((290, 290), (100, 90))
+                print(len(self.planner.trajectory))
+            
+            if counter < len(self.planner.trajectory)-1:
+                x = self.planner.trajectory[counter][0]
+                x_next = self.planner.trajectory[counter+1][0]
+                y = self.planner.trajectory[counter][1]
+                y_next = self.planner.trajectory[counter+1][1]
 
-            self.robot.angle += 1
-            self.robot.y_coord += 1
-
-            running = self.vis.update_display()
+                angle = atan2(y_next-y, x_next-x)
+                self.robot.turn_to(angle*180/pi - 90)
+                self.robot.set_position(x,HEIGHT-y)
+                self.robot.visited.append([x,y])
+                # print(len(self.robot.visited))
 
             counter += 1
             time.sleep(0.01)
         
 
 def main():
-    height = 1000
-    width = 1000
-    numTrees = 10
-    numCropRows = 20
-    cropsPerRow = 30
-    numWeeds = 50
+    height = HEIGHT
+    width = WIDTH
+    numTrees = 0
+    numCropRows = 7
+    cropsPerRow = 10
+    numWeeds = 10
 
     robot = Robot(500,500)
     world = World(width, height, numTrees, numCropRows, cropsPerRow, numWeeds)
-    vis = Visualizer(robot, world)
+    planner = Planner(robot, world)
+    vis = Visualizer(robot, world, planner)
 
-    runner = Runner(robot, world, vis)
+    runner = Runner(robot, world, vis, planner)
 
     try:
         runner.run()
