@@ -314,45 +314,34 @@ class Runner:
         counter = 0
 
         while running:
-                        
             running = self.vis.update_display(counter)
             
-            #if counter == 0:
-            #    #self.planner.get_path((290, 290), (100, 90))
-            #    self.planner.get_path((290, 290), (self.world.weed_xs[0]/3, self.world.weed_ys[0]/3))
-            #    print(len(self.planner.trajectory))
-            #weed_xs2 = []
-            #weed_ys2 = []
-            #weed_xs2 = self.world.weed_xs
-            #weed_ys2 = self.world.weed_ys
-            #for i in self.world.weed_xs:
             if counter == 0:
-                #print(i)
-                    #self.planner.get_path((290, 290), (100, 90))
-                self.planner.get_path((290, 290), (self.world.weed_xs[0]/3, self.world.weed_ys[0]/3))
+                #self.planner.get_path((290, 290), (100, 90))
+                for j in range(0,len(self.world.weed_xs)):
+                    if j == 0:
+                        self.planner.get_path((290, 290), (self.world.weed_xs[j]/3, self.world.weed_ys[j]/3))
+                        trajectoryTotal = self.planner.trajectory
+                    else:
+                        self.planner.get_path((self.world.weed_xs[j-1]/3, self.world.weed_ys[j-1]/3), (self.world.weed_xs[j]/3, self.world.weed_ys[j]/3))
+                        trajectoryTotal = np.vstack([trajectoryTotal, self.planner.trajectory])
+                #print(trajectoryTotal)
                 #print(len(self.planner.trajectory))
             
-            if counter < len(self.planner.trajectory)-1:
-                x = self.planner.trajectory[counter][0]
-                x_next = self.planner.trajectory[counter+1][0]
-                y = self.planner.trajectory[counter][1]
-                y_next = self.planner.trajectory[counter+1][1]
-
-                    #x = self.planner.trajectory[counter][1]
-                    #x_next = self.planner.trajectory[counter+1][1]
-                    #y = self.planner.trajectory[counter][0]
-                    #y_next = self.planner.trajectory[counter+1][0]
+            if counter < len(trajectoryTotal)-1:
+                x = trajectoryTotal[counter][0]
+                x_next = trajectoryTotal[counter+1][0]
+                y = trajectoryTotal[counter][1]
+                y_next = trajectoryTotal[counter+1][1]
 
                 angle = atan2(y_next-y, x_next-x)
                 self.robot.turn_to(angle*180/pi - 90)
                 self.robot.set_position(x,HEIGHT-y)
                 self.robot.visited.append([x,y])
-                    # print(len(self.robot.visited))
+                # print(len(self.robot.visited))
 
             counter += 1
             time.sleep(0.01)
-            #weed_xs2.pop(0)
-            #weed_ys2.pop(0)
         
 
 def main():
@@ -363,7 +352,7 @@ def main():
     #cropsPerRow = 10
     numCropRows = 5
     cropsPerRow = 10
-    numWeeds = 5
+    numWeeds = 3
 
     robot = Robot(500,500)
     world = World(width, height, numTrees, numCropRows, cropsPerRow, numWeeds)
