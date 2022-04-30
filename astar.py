@@ -24,7 +24,7 @@ class AStarPlanner:
         """
 
         self.reso = 1
-        self.rr = 1
+        self.rr = 0.5
 
         # self.calc_obstacle_map(ox, oy)
         self.obstacle_map = obs_map
@@ -231,6 +231,6 @@ class AStarPlanner:
     #               [-1, 0, 1],
     #               [0, -1, 1]]
 
-    #     return motion
+        return motion
 
 

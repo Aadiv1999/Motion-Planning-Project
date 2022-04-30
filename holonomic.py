@@ -30,12 +30,13 @@ def convert_to_display(mat):
 class Robot:
     x_coord: int
     y_coord: int
-    width: int = 20
-    height: int = 20
-    leg_length: int = 5
-    wheel_diam: int = 4
+    width: int = 70
+    height: int = 70
+    leg_length: int = 35
+    wheel_diam: int = 15
     angle = 0
     points = []
+    point = []
     # leg angles in degrees wrt robot frame
     # wheel angles in degrees wrt robot frame
     # this will be rotated
@@ -48,6 +49,8 @@ class Robot:
     def __init__(self, x, y) -> None:
         self.x_coord = x
         self.y_coord = y
+
+        self.point = [450,HEIGHT-450]
         # self.chassis = self.robot_points()
     
     def get_robot_points(self):
@@ -81,14 +84,34 @@ class Robot:
         points = rot_points(points, self.angle) + np.array([self.x_coord, self.y_coord])
 
         points = convert_to_display(points)
+        self.points = points
         return points
     
     def turn_to(self, theta: float) -> None:
         self.wheel[:] = theta
+
+    def turn_about(self, point: Tuple[int, int], counter: int) -> None:
+        x = point[0]
+        y = HEIGHT - point[1]
+
+        for i in range(4):
+            x_wheel = self.points[i+4][0]
+            y_wheel = HEIGHT-self.points[i+4][1]
+
+            self.wheel[i] = atan2(y_wheel-y, x_wheel-x) * 180/pi + 90
+            # print(self.wheel[i])
+
+        r = sqrt((x - self.x_coord)**2 + (y - self.y_coord)**2)
+        # print(r)
+        self.x_coord = x + r*cos((counter % 360)*pi/180)
+        self.y_coord = y + r*sin((counter % 360)*pi/180)
+
+        # print(self.x_coord, self.y_coord)
     
     def set_position(self, x: int, y:int) -> None:
         self.x_coord = x
         self.y_coord = y
+
 
 
 class World:    
@@ -224,6 +247,7 @@ class Visualizer:
         # plot legs
         for i in range(4):
             pygame.draw.line(self.screen, self.BLUE, all_points[i], all_points[i+4], 2)
+            pygame.draw.circle(self.screen, self.RED, all_points[i+4], 5)
         
         # plot wheels
         for i in range(8,15,2):
@@ -231,6 +255,9 @@ class Visualizer:
         
         # heading
         pygame.draw.line(self.screen, self.BLUE, all_points[-2], all_points[-1], 2)
+
+        # plot point
+        pygame.draw.circle(self.screen, self.RED, self.robot.point, 5)
 
     def display_world(self):
         for i in range(self.world.numCropRows):
@@ -263,7 +290,7 @@ class Visualizer:
 
         self.screen.fill(self.WHITE)
 
-        self.display_world()
+        # self.display_world()
 
         self.display_trajectory()
 
@@ -313,24 +340,24 @@ class Runner:
         counter = 0
 
         while running:
-                        
-            running = self.vis.update_display(counter)
-            
-            if counter == 0:
-                self.planner.get_path((290, 290), (0, 0))
-                print(len(self.planner.trajectory))
-            
-            if counter < len(self.planner.trajectory)-1:
-                x = self.planner.trajectory[counter][0]
-                x_next = self.planner.trajectory[counter+1][0]
-                y = self.planner.trajectory[counter][1]
-                y_next = self.planner.trajectory[counter+1][1]
 
-                angle = atan2(y_next-y, x_next-x)
-                self.robot.turn_to(angle*180/pi - 90)
-                self.robot.set_position(x,HEIGHT-y)
-                self.robot.visited.append([x,y])
-                # print(len(self.robot.visited))
+            running = self.vis.update_display(counter)            
+            self.robot.points = self.robot.get_robot_points()
+            
+            self.robot.leg[:] += 1
+            
+            if counter < 1000:
+                point = (450, HEIGHT-450)
+                
+            else:
+                point = (200, HEIGHT- 200)
+            self.robot.point = point
+            self.robot.turn_about(point, counter)
+
+            # print(self.robot.point)
+            
+            # running = self.vis.update_display(counter)
+
 
             counter += 1
             time.sleep(0.01)
@@ -339,12 +366,12 @@ class Runner:
 def main():
     height = HEIGHT
     width = WIDTH
-    numTrees = 3
+    numTrees = 0
     numCropRows = 7
     cropsPerRow = 10
     numWeeds = 10
 
-    robot = Robot(500,500)
+    robot = Robot(450,100)
     world = World(width, height, numTrees, numCropRows, cropsPerRow, numWeeds)
     planner = Planner(robot, world)
     vis = Visualizer(robot, world, planner)

@@ -124,7 +124,7 @@ class World:
         for i in range(numTrees):
             x_pos = random.randint(0, width)
             y_pos = random.randint(0, height)
-            tree_radius = random.randint(20, 70)
+            tree_radius = random.randint(10, 25)
             self.tree_xs.append(x_pos)
             self.tree_ys.append(y_pos)
             self.tree_sizes.append(tree_radius)
@@ -161,6 +161,7 @@ class World:
 class Planner:
 
     trajectory = []
+    trajectoryTotal = []
     def __init__(self, robot: Robot, world: World) -> None:
         self.robot = robot
         self.world = world
@@ -183,6 +184,7 @@ class Planner:
         x = HEIGHT//300
         # print("RX: ",rx)
         self.trajectory = np.flip(np.vstack((ry*x, rx*x)).T, axis=0)
+        # self.trajectory = np.flip(np.vstack((rx*x, ry*x)).T, axis=0)
 
         # cv2.imshow('map', obs_map)
         # cv2.waitKey()
@@ -253,11 +255,30 @@ class Visualizer:
             y_pos = self.world.tree_ys[i]
             tree_radius = self.world.tree_sizes[i]
             pygame.draw.circle(self.screen, self.TREE_GREEN, (x_pos, y_pos), tree_radius)
+
+    def display_environment(self):
+        for i in range(self.world.numCropRows):
+            x_pos = self.world.crop_xs[i]
+            crop_width = self.world.cropRow_widths[i]
+            y_pos = 0
+            pygame.draw.rect(self.screen, self.CROP_GREEN, (x_pos, y_pos, crop_width, self.world.height))
+        
+        for i in range(len(self.world.crop_space_ys)):
+            y_pos = self.world.crop_space_ys[i]
+            width = self.world.vert_crop_spacing
+            x_pos = 0
+            pygame.draw.rect(self.screen, self.WHITE, (x_pos, y_pos, self.world.width, width))
+
+        for i in range(self.world.numTrees):
+            x_pos = self.world.tree_xs[i]
+            y_pos = self.world.tree_ys[i]
+            tree_radius = self.world.tree_sizes[i]
+            pygame.draw.circle(self.screen, self.TREE_GREEN, (x_pos, y_pos), tree_radius)
         
     def display_trajectory(self):
         
-        for i in range(len(self.planner.trajectory)-1):
-            pygame.draw.line(self.screen, self.RED, self.planner.trajectory[i], self.planner.trajectory[i+1], 1)
+        for i in range(len(self.planner.trajectoryTotal)-1):
+            pygame.draw.line(self.screen, self.RED, self.planner.trajectoryTotal[i], self.planner.trajectoryTotal[i+1], 1)
 
     def update_display(self, counter: int) -> bool:
 
@@ -268,11 +289,12 @@ class Visualizer:
         self.display_trajectory()
 
         if counter < 1:
-            self.display_world()
+            self.screen.fill(self.WHITE)
+            self.display_environment()
             pygame.image.save(self.screen, 'output.png')
             img = cv2.threshold(255-cv2.imread('output.png',cv2.IMREAD_GRAYSCALE), 50, 255, cv2.THRESH_BINARY)[1]
             img_resize = cv2.resize(img, (300, 300), interpolation=cv2.INTER_AREA)
-            kernel = np.ones((10,10), np.uint8)
+            kernel = np.ones((5,5), np.uint8)
             self.world.world_array = cv2.dilate(img_resize, kernel, iterations=1)
             cv2.imwrite('output_dilated.png', self.world.world_array)
             # cv2.imshow('world', self.world.world_array)
@@ -311,38 +333,58 @@ class Runner:
     def run(self):
         running = True
         counter = 0
+        weeds_destroyed = 0
 
         while running:
-                        
             running = self.vis.update_display(counter)
             
             if counter == 0:
-                self.planner.get_path((290, 290), (0, 0))
-                print(len(self.planner.trajectory))
+                # self.planner.get_path((290, 290), (0, 0))
+                # trajectoryTotal = self.planner.trajectory
+                # self.planner.trajectoryTotal = trajectoryTotal
+                for j in range(0,len(self.world.weed_xs)):
+                    if j == 0:
+                        self.planner.get_path((290, 290), (self.world.weed_ys[j]/3, self.world.weed_xs[j]/3))
+                        trajectoryTotal = self.planner.trajectory
+                        self.planner.trajectoryTotal = trajectoryTotal
+                    else:
+                        self.planner.get_path((self.world.weed_ys[j-1]/3, self.world.weed_xs[j-1]/3), (self.world.weed_ys[j]/3, self.world.weed_xs[j]/3))
+                        trajectoryTotal = np.vstack([trajectoryTotal, self.planner.trajectory])
+                        self.planner.trajectoryTotal = trajectoryTotal
+                # print(trajectoryTotal)
+                # print(len(self.planner.trajectory))
             
-            if counter < len(self.planner.trajectory)-1:
-                x = self.planner.trajectory[counter][0]
-                x_next = self.planner.trajectory[counter+1][0]
-                y = self.planner.trajectory[counter][1]
-                y_next = self.planner.trajectory[counter+1][1]
+
+            
+            if counter < len(self.planner.trajectoryTotal)-1:
+                x = self.planner.trajectoryTotal[counter][0]
+                x_next = self.planner.trajectoryTotal[counter+1][0]
+                y = self.planner.trajectoryTotal[counter][1]
+                y_next = self.planner.trajectoryTotal[counter+1][1]
 
                 angle = atan2(y_next-y, x_next-x)
-                self.robot.turn_to(angle*180/pi - 90)
+                
+                if abs(angle) % pi/2 == 0:
+                    self.robot.turn_to(angle*180/pi)
+                else:
+                    self.robot.turn_to(angle*180/pi + 90)
                 self.robot.set_position(x,HEIGHT-y)
                 self.robot.visited.append([x,y])
                 # print(len(self.robot.visited))
 
             counter += 1
-            time.sleep(0.01)
+            time.sleep(0.05)
         
 
 def main():
     height = HEIGHT
     width = WIDTH
     numTrees = 3
-    numCropRows = 7
+    #numCropRows = 7
+    #cropsPerRow = 10
+    numCropRows = 5
     cropsPerRow = 10
-    numWeeds = 10
+    numWeeds = 3
 
     robot = Robot(500,500)
     world = World(width, height, numTrees, numCropRows, cropsPerRow, numWeeds)
