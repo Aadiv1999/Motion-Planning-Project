@@ -98,7 +98,8 @@ class Robot:
             x_wheel = self.points[i+4][0]
             y_wheel = HEIGHT-self.points[i+4][1]
 
-            self.wheel[i] = atan2(y_wheel-y, x_wheel-x) * 180/pi + 90
+            self.wheel[i] = atan2(y_wheel-y, x_wheel-x) * 180/pi + 90 - self.angle
+            # self.wheel[i] = atan2(y_wheel-y, x_wheel-x) * 180/pi - self.angle
             # print(self.wheel[i])
 
         r = sqrt((x - self.x_coord)**2 + (y - self.y_coord)**2)
@@ -161,15 +162,16 @@ class World:
             self.prev_crop_width = self.cropRow_widths[i-1]
             self.prev_crop_x = x_pos
             self.crop_xs.append(x_pos)
-        for i in range(numWeeds):
-            x_pos = random.randint(0, width)
-            y_pos = random.randint(0, height)
+        for i in range(self.numWeeds):
+            x_pos = random.randint(0, height)
+            y_pos = random.randint(0, width)
             weed_radius = random.randint(5, 15)
             self.weed_xs.append(x_pos)
             self.weed_ys.append(y_pos)
             self.weed_sizes.append(weed_radius)
+
         self.vert_crop_spacing = self.height/((self.cropsPerRow*2)-1)
-        print(self.vert_crop_spacing)
+        # print(self.vert_crop_spacing)
         for i in range((cropsPerRow*2)+1):
             # print(i)
             if i == 0:
@@ -179,6 +181,19 @@ class World:
                 self.crop_space_ys.append(y_pos)
             else:
                 y_pos = (i-1) * self.vert_crop_spacing
+        
+    def plant_weeds(self) -> None:
+        obs_map = cv2.imread("output_dilated.png", cv2.IMREAD_GRAYSCALE)
+        obs_idx = np.argwhere(obs_map == 0)
+        ox = np.array(obs_idx[:,0])
+        oy = np.array(obs_idx[:,1])
+        for i in range(self.numWeeds):
+            x_pos = random.randint(0, len(ox))
+            y_pos = random.randint(0, len(oy))
+            weed_radius = random.randint(5, 15)
+            self.weed_xs.append(ox[x_pos]*3)
+            self.weed_ys.append(oy[y_pos]*3)
+            self.weed_sizes.append(weed_radius)
 
 
 class Planner:
@@ -345,6 +360,7 @@ class Runner:
             self.robot.points = self.robot.get_robot_points()
             
             self.robot.leg[:] += 1
+            self.robot.angle += 2
             
             if counter < 1000:
                 point = (450, HEIGHT-450)

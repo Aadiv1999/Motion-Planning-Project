@@ -1,7 +1,4 @@
-from itertools import count
-from operator import truediv
 from pickletools import uint8
-from re import X
 import time
 from turtle import heading
 from typing import List, Tuple, Union
@@ -12,6 +9,7 @@ import pygame
 import random
 from math import sin, cos, atan, atan2, pi, sqrt
 from astar import AStarPlanner
+from travellingSalseman import TravellingSalsemanProblem
 
 HEIGHT = 900
 WIDTH = 900
@@ -121,9 +119,14 @@ class World:
         self.numCropRows = numCropRows
         self.cropsPerRow = cropsPerRow
         self.numWeeds = numWeeds
+
+        self.weed_xs = [0] * numWeeds
+        self.weed_ys = [0] * numWeeds
+        self.weed_sizes = [0] * numWeeds
+
         for i in range(numTrees):
-            x_pos = random.randint(0, width)
-            y_pos = random.randint(0, height)
+            x_pos = random.randint(0, width-40)
+            y_pos = random.randint(0, height-40)
             tree_radius = random.randint(10, 25)
             self.tree_xs.append(x_pos)
             self.tree_ys.append(y_pos)
@@ -138,15 +141,17 @@ class World:
             self.prev_crop_width = self.cropRow_widths[i-1]
             self.prev_crop_x = x_pos
             self.crop_xs.append(x_pos)
-        for i in range(numWeeds):
-            x_pos = random.randint(0, width)
-            y_pos = random.randint(0, height)
-            weed_radius = random.randint(5, 15)
-            self.weed_xs.append(x_pos)
-            self.weed_ys.append(y_pos)
-            self.weed_sizes.append(weed_radius)
+        # for i in range(numWeeds):
+        #     x_pos = random.randint(0, width)
+        #     y_pos = random.randint(0, height)
+        #     weed_radius = random.randint(5, 15)
+        #     self.weed_xs.append(x_pos)
+        #     self.weed_ys.append(y_pos)
+        #     self.weed_sizes.append(weed_radius)
+
         self.vert_crop_spacing = self.height/((self.cropsPerRow*2)-1)
-        print(self.vert_crop_spacing)
+        # print(self.vert_crop_spacing)
+
         for i in range((cropsPerRow*2)+1):
             # print(i)
             if i == 0:
@@ -158,6 +163,23 @@ class World:
                 y_pos = (i-1) * self.vert_crop_spacing
 
 
+    def plant_weeds(self) -> None:
+        obs_map = cv2.imread("output_dilated.png", cv2.IMREAD_GRAYSCALE)
+        obs_map = cv2.resize(obs_map, (HEIGHT, WIDTH), interpolation=cv2.INTER_AREA)
+        obs_idx = np.argwhere(obs_map == 0)
+        ox = np.array(obs_idx[:,0])
+        oy = np.array(obs_idx[:,1])
+        self.weed_xs = []
+        self.weed_ys = []
+        self.weed_sizes = []
+        for i in range(self.numWeeds):
+            x_pos = random.randint(0, len(ox))
+            y_pos = random.randint(0, len(oy))
+            weed_radius = random.randint(5, 15)
+            self.weed_xs.append(ox[x_pos])
+            self.weed_ys.append(oy[y_pos])
+            self.weed_sizes.append(weed_radius)
+
 class Planner:
 
     trajectory = []
@@ -168,20 +190,17 @@ class Planner:
     
     def get_path(self, start: Tuple[int, int], goal: Tuple[int, int]):
         obs = self.world.world_array
-        # obs[1:10, 1:10] = 255
+        obs[obs > 0] = 255
         
-        obs_idx = np.argwhere(obs == 255)
+        obs_idx = np.argwhere(obs > 0)
         ox = np.array(obs_idx[:,0])
         oy = np.array(obs_idx[:,1])
         obs_map = obs
-
-        
-
         
         astar = AStarPlanner(ox, oy, obs_map)
         rx, ry = astar.planning(start[0], start[1], goal[0], goal[1])
-        obs[rx, ry] = 255
-        x = HEIGHT//300
+        # obs[rx, ry] = 255
+        x = HEIGHT/300
         # print("RX: ",rx)
         self.trajectory = np.flip(np.vstack((ry*x, rx*x)).T, axis=0)
         # self.trajectory = np.flip(np.vstack((rx*x, ry*x)).T, axis=0)
@@ -212,8 +231,7 @@ class Visualizer:
         self.font = pygame.font.SysFont('freesansbolf.tff', 30)
     
     def display_robot(self):
-        angle = 0
-
+        
         all_points = self.robot.get_robot_points()
         
         # plot chassis
@@ -286,7 +304,7 @@ class Visualizer:
 
         self.display_world()
 
-        self.display_trajectory()
+        # self.display_trajectory()
 
         if counter < 1:
             self.screen.fill(self.WHITE)
@@ -294,18 +312,19 @@ class Visualizer:
             pygame.image.save(self.screen, 'output.png')
             img = cv2.threshold(255-cv2.imread('output.png',cv2.IMREAD_GRAYSCALE), 50, 255, cv2.THRESH_BINARY)[1]
             img_resize = cv2.resize(img, (300, 300), interpolation=cv2.INTER_AREA)
-            kernel = np.ones((5,5), np.uint8)
+            kernel = np.ones((3,3), np.uint8)
             self.world.world_array = cv2.dilate(img_resize, kernel, iterations=1)
             cv2.imwrite('output_dilated.png', self.world.world_array)
             # cv2.imshow('world', self.world.world_array)
             # cv2.waitKey()
             # cv2.destroyAllWindows()
 
-        if counter > 5:
+        if counter > 1:
             self.display_robot()
+            self.display_trajectory()
 
         for i in range(len(self.robot.visited)-1):
-            pygame.draw.line(self.screen, self.BLUE, self.robot.visited[i], self.robot.visited[i+1], 1)
+            pygame.draw.line(self.screen, self.BLUE, self.robot.visited[i], self.robot.visited[i+1], 3)
 
         for event in pygame.event.get():
             # Keypress
@@ -334,24 +353,36 @@ class Runner:
         running = True
         counter = 0
         weeds_destroyed = 0
+        trajectoryTotal = []
 
         while running:
             running = self.vis.update_display(counter)
-            
+            # self.world.plant_weeds()
+
             if counter == 0:
+                self.world.plant_weeds()
+                path_idx = TravellingSalsemanProblem(self.world.weed_xs, self.world.weed_ys)
                 # self.planner.get_path((290, 290), (0, 0))
                 # trajectoryTotal = self.planner.trajectory
                 # self.planner.trajectoryTotal = trajectoryTotal
-                for j in range(0,len(self.world.weed_xs)):
-                    if j == 0:
-                        self.planner.get_path((290, 290), (self.world.weed_ys[j]/3, self.world.weed_xs[j]/3))
+                # for j in range(0,len(self.world.weed_xs)):
+                #     if j == 0:
+                #         self.planner.get_path((290, 290), (self.world.weed_ys[j]/3, self.world.weed_xs[j]/3))
+                #         trajectoryTotal = self.planner.trajectory
+                #         self.planner.trajectoryTotal = trajectoryTotal
+                #     else:
+                #         self.planner.get_path((self.world.weed_ys[j-1]/3, self.world.weed_xs[j-1]/3), (self.world.weed_ys[j]/3, self.world.weed_xs[j]/3))
+                #         trajectoryTotal = np.vstack([trajectoryTotal, self.planner.trajectory])
+                #         self.planner.trajectoryTotal = trajectoryTotal
+                for j in range(len(self.world.weed_xs)-1):
+                    self.planner.get_path((self.world.weed_ys[path_idx[j]]/3, self.world.weed_xs[path_idx[j]]/3), (self.world.weed_ys[path_idx[j+1]]/3, self.world.weed_xs[path_idx[j+1]]/3))
+                    if len(trajectoryTotal) == 0:
                         trajectoryTotal = self.planner.trajectory
-                        self.planner.trajectoryTotal = trajectoryTotal
                     else:
-                        self.planner.get_path((self.world.weed_ys[j-1]/3, self.world.weed_xs[j-1]/3), (self.world.weed_ys[j]/3, self.world.weed_xs[j]/3))
                         trajectoryTotal = np.vstack([trajectoryTotal, self.planner.trajectory])
-                        self.planner.trajectoryTotal = trajectoryTotal
-                # print(trajectoryTotal)
+                    self.planner.trajectoryTotal = trajectoryTotal
+                print("All paths calculated")
+                time.sleep(2)
                 # print(len(self.planner.trajectory))
             
 
@@ -373,18 +404,18 @@ class Runner:
                 # print(len(self.robot.visited))
 
             counter += 1
-            time.sleep(0.05)
+            time.sleep(0.01)
         
 
 def main():
     height = HEIGHT
     width = WIDTH
-    numTrees = 3
+    numTrees = 25
     #numCropRows = 7
     #cropsPerRow = 10
-    numCropRows = 5
+    numCropRows = 10
     cropsPerRow = 10
-    numWeeds = 3
+    numWeeds = 7
 
     robot = Robot(500,500)
     world = World(width, height, numTrees, numCropRows, cropsPerRow, numWeeds)
